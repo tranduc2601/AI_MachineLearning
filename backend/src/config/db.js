@@ -25,17 +25,55 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
+const seedData = (database) => {
+  return new Promise((resolve, reject) => {
+    database.get('SELECT COUNT(*) as count FROM Songs', (err, row) => {
+      if (err) return reject(err);
+      
+      if (row.count === 0) {
+        logger.info('Songs table is empty. Seeding 10 real playable tracks...');
+        const stmt = database.prepare('INSERT INTO Songs (title, artist, genre, duration_seconds, file_path) VALUES (?, ?, ?, ?, ?)');
+        
+        // Using highly reliable SoundHelix direct CDN mp3 files
+        const sampleSongs = [
+          { title: "SoundHelix Song 1", artist: "SoundHelix", genre: "Electronic", duration: 372, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+          { title: "SoundHelix Song 2", artist: "SoundHelix", genre: "Electronic", duration: 425, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+          { title: "SoundHelix Song 3", artist: "SoundHelix", genre: "Electronic", duration: 344, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+          { title: "SoundHelix Song 4", artist: "SoundHelix", genre: "Electronic", duration: 302, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+          { title: "SoundHelix Song 5", artist: "SoundHelix", genre: "Electronic", duration: 353, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+          { title: "SoundHelix Song 6", artist: "SoundHelix", genre: "Electronic", duration: 285, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" },
+          { title: "SoundHelix Song 7", artist: "SoundHelix", genre: "Electronic", duration: 405, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
+          { title: "SoundHelix Song 8", artist: "SoundHelix", genre: "Electronic", duration: 350, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" },
+          { title: "SoundHelix Song 9", artist: "SoundHelix", genre: "Electronic", duration: 360, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3" },
+          { title: "SoundHelix Song 10", artist: "SoundHelix", genre: "Electronic", duration: 375, file: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3" }
+        ];
+
+        sampleSongs.forEach(song => {
+          stmt.run([song.title, song.artist, song.genre, song.duration, song.file]);
+        });
+        
+        stmt.finalize((finalizeErr) => {
+          if (finalizeErr) return reject(finalizeErr);
+          logger.info('Seed data inserted successfully with SoundHelix MP3s.');
+          resolve();
+        });
+      } else {
+        logger.info(`Songs table already has ${row.count} tracks. Skipping seed.`);
+        resolve();
+      }
+    });
+  });
+};
+
 export const initDB = () => {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
-      // 1. Users
       db.run(`CREATE TABLE IF NOT EXISTS Users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`);
 
-      // 2. Songs
       db.run(`CREATE TABLE IF NOT EXISTS Songs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -45,8 +83,6 @@ export const initDB = () => {
         file_path TEXT
       )`);
 
-      // 3. Recommendations (Lịch sử các lần gợi ý)
-      // Tạo trước để Interaction_Streams có thể tham chiếu FK
       db.run(`CREATE TABLE IF NOT EXISTS Recommendations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -56,7 +92,6 @@ export const initDB = () => {
         FOREIGN KEY(user_id) REFERENCES Users(id)
       )`);
 
-      // 4. Interaction_Streams (Đã gộp Feedback, thêm source & recommendation_id)
       db.run(`CREATE TABLE IF NOT EXISTS Interaction_Streams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -72,7 +107,6 @@ export const initDB = () => {
         FOREIGN KEY(recommendation_id) REFERENCES Recommendations(id)
       )`);
 
-      // 5. Run_Metrics
       db.run(`CREATE TABLE IF NOT EXISTS Run_Metrics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         recommendation_id INTEGER,
@@ -86,13 +120,20 @@ export const initDB = () => {
         confusion_matrix TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(recommendation_id) REFERENCES Recommendations(id)
-      )`, (err) => {
+      )`, async (err) => {
         if (err) {
           logger.error(`Error initializing tables: ${err.message}`);
           return reject(err);
         }
         logger.info('Database schema initialized successfully (Latest: Removed Feedback, updated Interaction_Streams)');
-        resolve(db);
+        
+        try {
+          await seedData(db);
+          resolve(db);
+        } catch (seedErr) {
+          logger.error(`Error seeding data: ${seedErr.message}`);
+          reject(seedErr);
+        }
       });
     });
   });

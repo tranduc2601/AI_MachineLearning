@@ -91,6 +91,8 @@ Cấu trúc cơ sở dữ liệu cốt lõi để theo dõi vòng lặp tương 
 - **Rule 1:** Tuân thủ Single Source of Truth. `PROJECT_MEMORY.md` là tài liệu tham chiếu cao nhất.
 - **Rule 2:** Tách biệt rõ ràng Logic (NodeJS phục vụ Web) và AI (Python xử lý Thuật toán). Dùng SQLite làm cầu nối dữ liệu cực nhanh ở Local.
 - **Rule 3:** Đánh giá độ thông minh không phải bằng giao diện đẹp, mà bằng biểu đồ tiến hóa (Accuracy) và Confusion Matrix thay đổi theo thời gian thực (Closed Feedback Loop).
+- **Rule 4 (Quy định cứng):** Toàn bộ hệ thống (bao gồm cả Node.js và Python) BẮT BUỘC chỉ đọc và ghi trên một file duy nhất mang tên `sqlite.db`. Tuyệt đối không được tạo thêm cơ sở dữ liệu phụ hay file data rời rạc.
+- **Rule 5 (Debugging Protocol):** All agents must implement robust error handling (try/catch) and safe null checks before executing functions.
 
 ## 9. TODO
 - [ ] Khởi tạo thư mục `frontend` với ReactJS cơ bản.
@@ -106,5 +108,34 @@ Cấu trúc cơ sở dữ liệu cốt lõi để theo dõi vòng lặp tương 
 - [x] Thiết kế hệ thống tổng thể.
 - [x] Khởi tạo `PROJECT_MEMORY.md`.
 
-## 11. Known Issues
-- Chưa có.
+## 11. Known Issues (CRITICAL SYSTEM-WIDE FAILURES)
+
+### BUG-001: Recommendation Proxy Failure
+- **Description**: `GET /api/recommendations` proxy is returning a 503 Service Unavailable error.
+- **Root Cause**: Node.js cannot reach Python Port 8000.
+
+### BUG-002: Audio Media Load & CORS Errors
+- **Description**: `HTMLAudioElement` is throwing Media load error and NotSupportedError.
+- **Root Cause**: The seeded `file_path` URLs are either CORS-blocked or invalid.
+
+### BUG-003: Authentication Persistence Failure
+- **Description**: Authentication is failing to persist dynamic User IDs, causing the FE to send hardcoded ID=1.
+- **Root Cause**: Lack of robust token saving or state persistence on the frontend.
+
+## 12. ML System Audit (Kiểm tra đối chiếu Slide)
+
+| Yêu cầu từ Slide/Đề bài | Trạng thái ML Engine | Ghi chú |
+|---|---|---|
+| Thuật toán kNN (C2) | ✅ Đạt | `core.py`: Cosine Similarity trên User-Item Matrix, top-k=5 láng giềng |
+| Implicit Rating từ hành vi (C1) | ✅ Đạt | Rating scale: like=5, complete=4, start=3, skip≥15s=2, dislike=1 |
+| Lọc bias / Noise (Task 2) | ✅ Đạt | Lọc bỏ skip < 15s, loại bỏ genre bị dislike (rating trung bình < 3.0) |
+| Explore & Exploit (Task 2) | ✅ Đạt | 80% Exploit (kNN), 20% Explore (ưu tiên genre chưa nghe) |
+| Vòng lặp phản hồi Feedback Loop (Task 2) | ✅ Đạt | Ghi vào Interaction_Streams với source='recommendation', tự động tính lại |
+| Confusion Matrix + Accuracy (C3/Task 3) | ✅ Đạt | `evaluate.py`: TP/FP/TN/FN định nghĩa rõ ràng, lưu vào Run_Metrics |
+| Cold Start handling | ✅ Đạt | User mới không có dữ liệu → trả về random songs |
+| Dùng scikit-learn (C2-3) | ✅ Đạt | Import `cosine_similarity` từ sklearn |
+| Sự tiến hóa theo thời gian (Tiêu chí đánh giá) | ✅ Đạt | Run_Metrics lưu nhiều lần → Frontend vẽ biểu đồ accuracy tăng dần |
+| Dùng file `sqlite.db` duy nhất (Rule 4) | ✅ Đạt | `DB_PATH` trỏ đến `backend/database/sqlite.db` |
+| Test Script (kiểm thử) | ✅ Đạt | `test_mock_data.py` tạo 3 user, 9 bài hát, kiểm tra kNN + Explore |
+
+**Kết luận ML**: Hệ thống Recommender Engine **đáp ứng đầy đủ** yêu cầu lý thuyết từ các slide và đề bài. Sẵn sàng cho Integration Test khi Frontend fix xong 3 bug trên.

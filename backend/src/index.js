@@ -13,8 +13,18 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// Cấu hình CORS chặt chẽ: Hỗ trợ Vite Frontend, cho phép truyền Token qua header / credentials
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Port mặc định của Vite (React)
+  credentials: true, // Cho phép trình duyệt gửi Cookie/Authorization header
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
+app.use('/music', express.static('public/music'));
+app.use('/audio', express.static('public/audio')); // Dự phòng nếu gọi /audio
 
 // Mount API Routes
 app.use('/api/auth', authRoutes);
@@ -40,6 +50,7 @@ initDB().then(() => {
     logger.info(`Express Server is running on http://localhost:${PORT}`);
     logger.info(`Architecture: Hybrid (Backend: Node.js, AI Engine: Python on Port 8000)`);
     logger.info(`Available endpoints mounted: /api/auth, /api/songs, /api/telemetry, /api/recommendations, /api/analytics`);
+    logger.info(`CORS enabled for origins: http://localhost:5173, http://127.0.0.1:5173 (with credentials)`);
   });
 }).catch(err => {
   logger.error('Failed to initialize database. Server not started.', err);

@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 from core import get_recommendations
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', 'database', 'database.sqlite')
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', 'database', 'sqlite.db')
 
 def setup_mock_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

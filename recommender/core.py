@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', 'database', 'database.sqlite')
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', 'database', 'sqlite.db')
 
 def get_db_connection():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -61,10 +61,11 @@ def get_recommendations(user_id: int, num_recommendations: int = 10) -> list[int
     if songs_df.empty:
         return []
 
+    all_songs = songs_df['song_id'].tolist()
+
     # Cold start or no ratings: Return random songs
     if ratings_df.empty or user_id not in ratings_df['user_id'].values:
         logger.info(f"Cold start for user {user_id}. Returning random songs.")
-        all_songs = songs_df['song_id'].tolist()
         random.shuffle(all_songs)
         return all_songs[:num_recommendations]
 
@@ -90,10 +91,9 @@ def get_recommendations(user_id: int, num_recommendations: int = 10) -> list[int
     user_history_songs = user_ratings.dropna().index.tolist()
     
     # Global unrated pool: All songs in the DB NOT in user's history and NOT in disliked genres
-    all_songs = songs_df['song_id'].tolist()
     global_unrated_songs = [s for s in all_songs if s not in user_history_songs and s not in songs_to_exclude]
     
-    # For kNN predictions, we can only predict for songs that actually exist in the matrix (someone has rated them)
+    # For kNN predictions, predict only for songs that exist in the matrix (someone has rated them)
     songs_in_matrix = user_item_matrix.columns.tolist()
     unrated_in_matrix = [s for s in global_unrated_songs if s in songs_in_matrix]
     
@@ -113,45 +113,61 @@ def get_recommendations(user_id: int, num_recommendations: int = 10) -> list[int
         
     predicted_ratings.sort(key=lambda x: x[1], reverse=True)
     
-    # 3. Explore & Exploit Strategy
-    num_explore = max(1, int(num_recommendations * 0.2)) # Guarantee at least 1 explore
-    num_exploit = num_recommendations - num_explore
+    # 3. Explore & Exploit Strategy Setup
+    num_explore_target = max(1, int(num_recommendations * 0.2)) # Guarantee at least 1 explore
+    num_exploit_target = num_recommendations - num_explore_target
     
-    # Exploit: Top predicted songs
-    exploit_songs = [song for song, rating in predicted_ratings[:num_exploit]]
+    # BƯỚC 1: Bốc bài cho Exploit từ kNN
+    exploit_songs = [song for song, rating in predicted_ratings[:num_exploit_target]]
     
-    # If we don't have enough predictions, fallback to random from global unrated pool
-    if len(exploit_songs) < num_exploit:
-        remaining = num_exploit - len(exploit_songs)
-        other_unrated = [s for s in global_unrated_songs if s not in exploit_songs]
-        random.shuffle(other_unrated)
-        exploit_songs.extend(other_unrated[:remaining])
-        
-    # Explore: Find genres user hasn't heard much (excluding disliked genres)
+    # BƯỚC 2: Bốc bài cho Explore
     user_history_genres = songs_df[songs_df['song_id'].isin(user_history_songs)]['genre'].unique()
     all_genres = songs_df['genre'].unique()
-    
     unexplored_genres = [g for g in all_genres if g not in user_history_genres and g not in disliked_genres]
     
-    # Explore candidates are picked from global_unrated_songs that are not already in exploit
-    explore_candidates = songs_df[
+    explore_candidates_df = songs_df[
         (songs_df['song_id'].isin(global_unrated_songs)) & 
         (~songs_df['song_id'].isin(exploit_songs))
     ]
     
-    if unexplored_genres:
-        prioritized_explore = explore_candidates[explore_candidates['genre'].isin(unexplored_genres)]['song_id'].tolist()
-        random.shuffle(prioritized_explore)
-        explore_songs = prioritized_explore[:num_explore]
-    else:
-        explore_songs = []
-        
-    if len(explore_songs) < num_explore:
-        remaining_candidates = explore_candidates[~explore_candidates['song_id'].isin(explore_songs)]['song_id'].tolist()
+    explore_songs = []
+    if unexplored_genres and not explore_candidates_df.empty:
+        prioritized_df = explore_candidates_df[explore_candidates_df['genre'].isin(unexplored_genres)]
+        if not prioritized_df.empty:
+            prioritized_list = prioritized_df['song_id'].tolist()
+            random.shuffle(prioritized_list)
+            explore_songs = prioritized_list[:num_explore_target]
+            
+    if len(explore_songs) < num_explore_target and not explore_candidates_df.empty:
+        remaining_candidates = explore_candidates_df[~explore_candidates_df['song_id'].isin(explore_songs)]['song_id'].tolist()
         random.shuffle(remaining_candidates)
-        explore_songs.extend(remaining_candidates[:(num_explore - len(explore_songs))])
+        needed = num_explore_target - len(explore_songs)
+        explore_songs.extend(remaining_candidates[:needed])
         
+    # BƯỚC 3: Gộp và Trám bài (Fallback)
     final_recommendations = exploit_songs + explore_songs
+    
+    if len(final_recommendations) < num_recommendations:
+        needed_total = num_recommendations - len(final_recommendations)
+        fallback_pool = [s for s in global_unrated_songs if s not in final_recommendations]
+        random.shuffle(fallback_pool)
+        fallback_songs = fallback_pool[:needed_total]
+        final_recommendations.extend(fallback_songs)
+        explore_songs.extend(fallback_songs)
+
+    # ABSOLUTE FAILSAFE: Ignore all filters (dislikes, history) if we STILL don't have enough songs
+    if len(final_recommendations) < num_recommendations:
+        logger.warning("Triggered Absolute Failsafe: Ignoring user history and disliked genres to meet num_recommendations.")
+        needed_total = num_recommendations - len(final_recommendations)
+        
+        # Pick from the entire catalog, excluding what's already in final_recommendations
+        absolute_fallback_pool = [s for s in all_songs if s not in final_recommendations]
+        random.shuffle(absolute_fallback_pool)
+        
+        absolute_fallback_songs = absolute_fallback_pool[:needed_total]
+        final_recommendations.extend(absolute_fallback_songs)
+        explore_songs.extend(absolute_fallback_songs) # Classify as explore for metric consistency
+
     random.shuffle(final_recommendations)
     
     logger.info(f"User {user_id} recommendations: {len(exploit_songs)} exploit, {len(explore_songs)} explore")

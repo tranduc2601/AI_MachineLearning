@@ -1,10 +1,11 @@
 import React from 'react';
 import type { User } from '../types';
-import { Music, User as UserIcon, Activity, Sparkles } from 'lucide-react';
+import { Music, User as UserIcon, Activity, Sparkles, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   currentUser: User | null;
   onOpenLogin: () => void;
+  onSwitchUser: () => void;
   activeTab: 'player' | 'analytics';
   setActiveTab: (tab: 'player' | 'analytics') => void;
 }
@@ -12,6 +13,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onOpenLogin,
+  onSwitchUser,
   activeTab,
   setActiveTab
 }) => {
@@ -82,8 +84,8 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* User Login Identification */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* User Login & Switch User Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <button
           onClick={onOpenLogin}
           className="glass-panel"
@@ -105,6 +107,28 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Login User</span>
           )}
         </button>
+
+        {currentUser && (
+          <button
+            onClick={onSwitchUser}
+            className="glass-panel"
+            style={{
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              color: 'var(--accent-rose)',
+              borderColor: 'rgba(244, 63, 94, 0.3)',
+              background: 'rgba(244, 63, 94, 0.12)',
+              fontSize: '12px',
+              fontWeight: 600
+            }}
+            title="Switch User Account"
+          >
+            <LogOut size={14} /> Switch User
+          </button>
+        )}
       </div>
     </header>
   );

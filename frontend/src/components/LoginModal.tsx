@@ -16,6 +16,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -24,13 +25,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     if (!username.trim()) return;
 
     setLoading(true);
+    setErrorMsg(null);
     try {
+      // Call POST /api/auth/login with { username }
       const user = await authService.login(username.trim());
+      console.log('Login success - Logged in User:', user);
       onLoginSuccess(user);
       setUsername('');
       onClose();
-    } catch (err) {
-      console.error('Login error:', err);
+    } catch (err: any) {
+      console.error('Login API error:', err);
+      setErrorMsg(err.message || 'Failed to authenticate user.');
     } finally {
       setLoading(false);
     }
@@ -74,9 +79,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
           <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Identify User</h2>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Enter a username to track telemetry & personalize recommendations.
+            Calls <code style={{ color: 'var(--accent-cyan)' }}>POST /api/auth/login</code> to register/authenticate user in Database.
           </p>
         </div>
+
+        {errorMsg && (
+          <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', color: 'var(--accent-rose)', fontSize: '12px', marginBottom: '16px' }}>
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
@@ -87,7 +98,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. Alice or Bob"
+              placeholder="e.g. Alice, Bob, Charlie..."
               style={{
                 width: '100%',
                 padding: '12px 16px',
@@ -108,7 +119,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             className="btn-primary"
             style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
           >
-            {loading ? 'Identifying...' : 'Continue to Music Player'}
+            {loading ? 'Authenticating...' : 'Continue to Music Player'}
           </button>
         </form>
       </div>

@@ -10,9 +10,21 @@ import { SongCatalog } from './components/SongCatalog';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>({ id: 1, username: 'Alice' });
+  // Initialize user from localStorage if previously authenticated, otherwise start as null
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('aura_current_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (err) {
+        return null;
+      }
+    }
+    return null;
+  });
+
   const [activeTab, setActiveTab] = useState<'player' | 'analytics'>('player');
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState<boolean>(() => !localStorage.getItem('aura_current_user'));
 
   const [songs, setSongs] = useState<Song[]>(MOCK_SONGS);
   const [currentSong, setCurrentSong] = useState<Song | null>(MOCK_SONGS[0]);
@@ -34,23 +46,37 @@ export function App() {
     fetchSongs();
   }, []);
 
-  // Load recommendations & analytics metrics when user or song changes
+  // Load recommendations & analytics metrics whenever current user changes
   useEffect(() => {
     if (currentUser) {
-      loadRecommendations();
+      loadRecommendations(currentUser.id);
       loadMetrics();
     }
   }, [currentUser]);
 
-  const loadRecommendations = async () => {
-    if (!currentUser) return;
-    const recData = await recommendationService.getRecommendations(currentUser.id);
+  const loadRecommendations = async (userId?: number) => {
+    const idToFetch = userId ?? currentUser?.id;
+    if (!idToFetch) return;
+    const recData = await recommendationService.getRecommendations(idToFetch);
     setRecommendations(recData);
   };
 
   const loadMetrics = async () => {
     const metricsData = await analyticsService.getMetrics();
     setMetrics(metricsData);
+  };
+
+  const handleLoginSuccess = (user: User) => {
+    console.log('App received authenticated user:', user);
+    setCurrentUser(user);
+    localStorage.setItem('aura_current_user', JSON.stringify(user));
+    loadRecommendations(user.id);
+  };
+
+  const handleSwitchUser = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('aura_current_user');
+    setIsLoginOpen(true);
   };
 
   const handleNextTrack = () => {
@@ -84,17 +110,20 @@ export function App() {
       <Header
         currentUser={currentUser}
         onOpenLogin={() => setIsLoginOpen(true)}
+        onSwitchUser={handleSwitchUser}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
       <LoginModal
         isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          loadRecommendations();
+        onClose={() => {
+          // If no user is authenticated, keep modal open or fallback
+          if (currentUser) {
+            setIsLoginOpen(false);
+          }
         }}
+        onLoginSuccess={handleLoginSuccess}
       />
 
       {activeTab === 'player' ? (
@@ -124,7 +153,7 @@ export function App() {
               recommendationData={recommendations}
               currentUser={currentUser}
               onSelectRecommendedSong={handleSelectRecommendedSong}
-              onRefreshRecommendations={loadRecommendations}
+              onRefreshRecommendations={() => currentUser && loadRecommendations(currentUser.id)}
             />
           </div>
         </div>

@@ -39,23 +39,34 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [liked, setLiked] = useState(false);
   const [disliked, setDisliked] = useState(false);
 
+  // Helper to resolve the correct audio URL from file_path or audio_url
+  const getAudioSource = (song: Song | null): string => {
+    if (!song) return '';
+    if (song.audio_url) return song.audio_url;
+    if (!song.file_path) return '';
+    if (song.file_path.startsWith('http://') || song.file_path.startsWith('https://')) {
+      return song.file_path;
+    }
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const serverOrigin = baseUrl.replace(/\/api\/?$/, '');
+    const cleanPath = song.file_path.startsWith('/') ? song.file_path : `/${song.file_path}`;
+    return `${serverOrigin}${cleanPath}`;
+  };
+
+  const audioSrc = getAudioSource(currentSong);
+
   // Reset states on song change
   useEffect(() => {
     setLiked(false);
     setDisliked(false);
     setCurrentTime(0);
+    setIsPlaying(false);
 
-    if (currentSong && audioRef.current) {
+    if (audioRef.current) {
       audioRef.current.currentTime = 0;
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-        emitTelemetry('start', 0);
-      }).catch(err => {
-        console.warn('Autoplay prevented or audio load failed:', err);
-        setIsPlaying(false);
-      });
+      audioRef.current.load();
     }
-  }, [currentSong]);
+  }, [currentSong?.id]);
 
   const emitTelemetry = (eventType: InteractionEventType, positionSeconds?: number) => {
     if (!currentSong || !currentUser) return;
@@ -78,11 +89,11 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
-      emitTelemetry('pause');
     } else {
       audioRef.current.play().then(() => {
         setIsPlaying(true);
-        emitTelemetry('start');
+      }).catch(err => {
+        console.warn('Play interrupted', err);
       });
     }
   };
@@ -167,9 +178,12 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative' }}>
       <audio
         ref={audioRef}
-        src={currentSong?.audio_url || ''}
+        src={audioSrc}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
+        onPlay={() => emitTelemetry('start')}
+        onPause={() => emitTelemetry('pause')}
+        onError={() => { setIsPlaying(false); console.warn('Audio source unavailable for this track.'); }}
       />
 
       {/* Track Art & Metadata */}

@@ -12,10 +12,19 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   },
   timeout: 4000
+});
+
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 // Helper for session ID tracking
@@ -32,15 +41,36 @@ export const getSessionId = (): string => {
 export const authService = {
   login: async (username: string): Promise<User> => {
     try {
+      console.log('Calling POST /api/auth/login with:', { username });
       const response = await apiClient.post('/auth/login', { username });
-      if (response.data?.user) {
-        return response.data.user;
+      if (response.data?.token) localStorage.setItem('token', response.data.token);
+      console.log('Response from POST /api/auth/login:', response.data);
+
+      // Handle backend response format: { success: true, user: { id, username } }
+      if (response.data?.user && typeof response.data.user.id === 'number') {
+        return {
+          id: response.data.user.id,
+          username: response.data.user.username || username
+        };
+      }
+      // Handle direct response format: { id, username }
+      if (response.data?.id && typeof response.data.id === 'number') {
+        return {
+          id: response.data.id,
+          username: response.data.username || username
+        };
+      }
+      // Handle raw numeric ID response
+      if (typeof response.data === 'number') {
+        return { id: response.data, username };
       }
       return response.data;
     } catch (err) {
-      console.warn('Backend login endpoint unavailable, using local session mode:', err);
+      console.warn('Backend login endpoint unavailable, deriving deterministic user ID from username:', err);
+      // Fallback for offline mode: derive a deterministic numeric ID from username
+      const uniqueId = Math.abs(hashString(username)) % 10000 + 1;
       return {
-        id: Math.floor(Math.abs(hashString(username) % 1000)) + 1,
+        id: uniqueId,
         username
       };
     }
@@ -75,6 +105,7 @@ export const telemetryService = {
 export const recommendationService = {
   getRecommendations: async (userId: number): Promise<RecommendationResponse> => {
     try {
+      console.log(`Fetching recommendations for user_id=${userId} from GET /api/recommendations...`);
       const response = await apiClient.get('/recommendations', {
         params: { user_id: userId }
       });

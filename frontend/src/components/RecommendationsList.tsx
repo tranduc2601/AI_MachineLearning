@@ -65,7 +65,7 @@ export const RecommendationsList: React.FC<RecommendationsListProps> = ({
 
       {/* Recommended Songs Feed */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-        {recommendationData?.songs.map((song, idx) => {
+        {(recommendationData?.songs ?? []).map((song, idx) => {
           const isExplore = idx % 3 === 2; // Tag sample for explore vs exploit
           return (
             <div

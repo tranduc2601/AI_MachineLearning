@@ -11,9 +11,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   metrics,
   onRefresh
 }) => {
-  if (!metrics) return null;
+  if (!metrics || !metrics.latest_confusion_matrix) return <div>Loading or Error...</div>;
 
-  const { latest_confusion_matrix: cm, history } = metrics;
+  const { latest_confusion_matrix: cm, history = [] } = metrics;
 
   // Calculate Accuracy, Precision, Recall from Confusion Matrix
   const total = cm.tp + cm.fp + cm.tn + cm.fn || 1;
