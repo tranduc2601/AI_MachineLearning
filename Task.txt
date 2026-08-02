@@ -1,0 +1,25 @@
+Task:
+1. Khởi tạo ứng dụng nền tảng (Web chạy local)
+Mục tiêu ở bước này không phải là làm một giao diện quá đồ sộ, mà là tạo ra một môi trường đủ tốt để thu thập dữ liệu hành vi.
+
+Chức năng cốt lõi: Cần có tính năng đăng nhập (để định danh người dùng), phát nhạc, chuyển bài (skip), và thích/không thích (like/dislike).
+
+Cơ sở dữ liệu: Cấu trúc dữ liệu là phần quan trọng nhất. Thay vì chỉ lưu thông tin tĩnh (tên bài hát, tên ca sĩ), bạn bắt buộc phải thiết kế bảng lưu trữ các luồng tương tác (ví dụ: User A nghe bài hát B vào lúc 8h tối, nghe được 15 giây thì bấm chuyển bài).
+
+Công nghệ: Việc tận dụng các stack công nghệ quen thuộc có khả năng xử lý bất đồng bộ tốt như ReactJS cho giao diện và Node.js cho backend sẽ giúp bạn rút ngắn đáng kể thời gian xây dựng nền tảng, dành sức cho phần thuật toán phía sau.
+
+2. Xây dựng Hệ thống thông minh (Recommender System)
+Đây là "bộ não" của dự án và là nơi bạn áp dụng trực tiếp các kiến thức từ bài giảng, biến các thuật toán thành một quy trình tự động.
+
+Mô hình hóa (Modeling): Áp dụng các thuật toán như kNN để tính toán khoảng cách tương đồng giữa các người dùng hoặc các bài hát.
+
+Đảm bảo đạo đức và dữ liệu tốt: Cần có cơ chế lọc dữ liệu thô để loại bỏ các thành kiến (bias). Ví dụ: Không để hệ thống chỉ gợi ý nhạc buồn cho một người dùng chỉ vì họ lỡ nghe một bài nhạc buồn vào hôm trước, hệ thống cần đa dạng hóa (Explore & Exploit).
+
+Vòng lặp phản hồi (Feedback Loop): Đây là tiêu chí sống còn. Hệ thống phải ghi nhận được phản ứng của người dùng đối với danh sách vừa gợi ý. Nếu gợi ý sai, thuật toán phải tự động cập nhật lại trọng số mà không cần can thiệp thủ công.
+
+3. Báo cáo nghiệm thu và đánh giá
+Báo cáo cuối môn chính là nơi bạn chứng minh sản phẩm của mình không phải là một "phần mềm if-else thông thường". Báo cáo cần làm nổi bật hai khía cạnh:
+
+Bản chất thông minh (Theo Chương 1): Chứng minh được sự tiến hóa của hệ thống qua thời gian thông qua biểu đồ hoặc log dữ liệu về vòng lặp phản hồi.
+
+Đánh giá kỹ thuật (Theo Chương 3): Sử dụng các số liệu thực tế để chấm điểm thuật toán, bao gồm Ma trận nhầm lẫn (Confusion Matrix), Độ chính xác (Accuracy), và báo cáo chi tiết về cách quản trị rủi ro khi mô hình dự đoán sai sở thích người dùng.

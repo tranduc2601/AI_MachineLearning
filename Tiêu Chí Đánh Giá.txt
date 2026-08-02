@@ -1,0 +1,7 @@
+sự thông minh không được chấm bằng các công thức toán học phức tạp, mà được đánh giá qua các tiêu chí định tính cốt lõi sau:
+
+Khả năng tự cải thiện (Sự tiến hóa): Hệ thống có tự động tốt lên theo thời gian thông qua việc học hỏi từ dữ liệu mới không, hay chỉ hoạt động cứng nhắc theo những quy tắc (if-else) được lập trình sẵn?
+
+Đóng vòng lặp phản hồi (Feedback loop): Hệ thống có khả năng ghi nhận kết quả từ các tương tác thực tế của người dùng (ví dụ: người dùng có click vào sản phẩm gợi ý không, có bỏ giỏ hàng không) để tự động điều chỉnh các quyết định trong tương lai không?
+
+Trải nghiệm người dùng: Sự thông minh phải được thể hiện qua việc mang lại một trải nghiệm cá nhân hóa, trơn tru và giải quyết đúng nhu cầu của người dùng tại thời điểm họ cần.
